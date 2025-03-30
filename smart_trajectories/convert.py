@@ -47,8 +47,8 @@ def txt_to_csv_datetime(txt_filename, csv_filename):
     for line in lines:
         parts = line.strip().split(', ')
 
-        identifier = int(parts[0])
-        category = int(parts[1])
+        identifier = float(parts[0])
+        category = float(parts[1])
         start_time = datetime.strptime(parts[2], "%Y-%m-%d %H:%M:%S.%f")
         end_time = datetime.strptime(parts[3], "%Y-%m-%d %H:%M:%S.%f")
 
