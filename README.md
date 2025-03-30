@@ -32,6 +32,8 @@
 - **`plot_trajectories_with_start_finish(traj_collection, category, background_image_path)`**  
   Plota as trajetórias de uma categoria verificando o início e fim correto da trajetória com linhas de partida e chegada.
 
+- **`plot_trajectories_with_stopped(traj_collection, category, background_image_path)`**  
+  Plota as trajetórias de uma categoria verificando se em algum momento ouve um comportamento de parada.
 ---
 
 ## **Como Utilizar a Biblioteca `smart-trajectories`**
