@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from shapely.geometry import Point
 from shapely.ops import nearest_points
 from PIL import Image
@@ -30,6 +31,7 @@ def plot_trajectories(traj_collection, xsize, ysize, xlim1, xlim2, ylim1, ylim2,
     plt.xlabel('Latitude')
     plt.ylabel('Longitude')
     plt.title('Trajectories')
+    plt.grid(True)
     plt.show()
 
 # Plots by category
@@ -55,6 +57,7 @@ def plot_trajectories_categorized(traj_collection, xsize, ysize, xlim1, xlim2, y
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.title('Trajectories')
+    plt.grid(True)
     plt.show()
 
 # Plots one category selected
@@ -84,6 +87,7 @@ def plot_trajectories_one_category(traj_collection, category, xsize, ysize, xlim
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.title(f'Trajectories for category {category}')
+    plt.grid(True)
     plt.show()
 
 # Plot with an image of the location
@@ -308,4 +312,82 @@ def plot_trajectories_with_start_finish(traj_collection, category, background_im
     plt.ylabel('Latitude')
     plt.title('Trajectories')
     plt.show()
+    
+    
+def detect_stopped_periods(points, timestamps, max_distance=5, min_duration=30, noise_tolerance=1):
+    """Versão corrigida para trabalhar com tuplas (x, y)."""
+    if len(points) < 2:
+        return []
 
+    # Converter pontos para array numpy (assumindo formato [(x1, y1), (x2, y2), ...])
+    points_array = np.array(points)
+    
+    # Calcular deslocamentos entre pontos consecutivos
+    deltas = np.diff(points_array, axis=0)
+    distances = np.hypot(deltas[:,0], deltas[:,1])
+    
+    # Identificar movimentos significativos
+    significant_moves = distances > max_distance
+    
+    # Inicializar variáveis
+    stopped_periods = []
+    start_idx = 0
+    noise_count = 0
+
+    for i in range(len(significant_moves)):
+        if significant_moves[i]:
+            noise_count += 1
+            if noise_count > noise_tolerance:
+                duration = (timestamps[i+1] - timestamps[start_idx]).total_seconds()
+                if duration >= min_duration:
+                    stopped_periods.append((start_idx, i))
+                start_idx = i + 1
+                noise_count = 0
+        else:
+            noise_count = 0
+            
+    # Verificar último período
+    final_duration = (timestamps[-1] - timestamps[start_idx]).total_seconds()
+    if final_duration >= min_duration:
+        stopped_periods.append((start_idx, len(points)-1))
+
+    return stopped_periods
+
+def plot_trajectories_with_stopped(traj_collection, category, background_image_path, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, stop_threshold=5, min_duration=30, noise_tolerance=1, category_colors=category_colors_template, linewidth=2, alpha=0.35):
+    img = Image.open(background_image_path)
+    plt.figure(figsize=(xsize, ysize))
+    plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
+    color = category_colors[category]
+    
+    for traj in traj_collection:
+        traj_category = traj.df['category'].iloc[0]
+        if traj_category != category:
+            continue
+        
+        # Extrai coordenadas e timestamps
+        points = [(p.x, p.y) for p in traj.df.geometry]
+        timestamps = traj.df.index  # Assumindo que é um DatetimeIndex
+        
+        # Chama a função detect_stopped_periods
+        stopped_periods = detect_stopped_periods(points=points, timestamps=timestamps, max_distance=stop_threshold, min_duration=min_duration, noise_tolerance=noise_tolerance)
+        
+        # Plotagem da trajetória completa
+        x_coords = [p[0] for p in points]
+        y_coords = [p[1] for p in points]
+        plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha)
+        
+        # Destaca pontos parados
+        if stopped_periods:
+            for period in stopped_periods:
+                start_idx, end_idx = period
+                stopped_x = [p[0] for p in points[start_idx:end_idx+1]]
+                stopped_y = [p[1] for p in points[start_idx:end_idx+1]]
+                label = 'Parado' if start_idx == 0 and not stopped_periods else ""
+                plt.scatter(stopped_x, stopped_y, color='red', s=10, zorder=4, label=label)
+    
+    plt.xlim(xlim1, xlim2)
+    plt.ylim(ylim1, ylim2)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.title('Trajectories')
+    plt.show()
