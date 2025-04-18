@@ -4,6 +4,7 @@ from shapely.geometry import Point
 from shapely.ops import nearest_points
 from PIL import Image
 from shapely.geometry import LineString
+from matplotlib.patches import Rectangle
 
 # Category colors
 category_colors_template = {
@@ -17,7 +18,7 @@ category_colors_template = {
 
 # Plot all trajectories
 def plot_trajectories(traj_collection, xsize, ysize, xlim1, xlim2, ylim1, ylim2, linewidth=2, alpha=0.35):
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
     
     for traj in traj_collection:
         x_coords = [point.x for point in traj.df.geometry]
@@ -36,7 +37,7 @@ def plot_trajectories(traj_collection, xsize, ysize, xlim1, xlim2, ylim1, ylim2,
 
 # Plots by category
 def plot_trajectories_categorized(traj_collection, xsize, ysize, xlim1, xlim2, ylim1, ylim2, linewidth=2, alpha=0.35, category_colors=category_colors_template):
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
 
     for traj in traj_collection:
         category = traj.df['category'].iloc[0]
@@ -62,7 +63,7 @@ def plot_trajectories_categorized(traj_collection, xsize, ysize, xlim1, xlim2, y
 
 # Plots one category selected
 def plot_trajectories_one_category(traj_collection, category, xsize, ysize, xlim1, xlim2, ylim1, ylim2, linewidth=2, alpha=0.35, category_colors=category_colors_template):
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
 
     if category not in category_colors:
         print("Category not recognized. Use a valid category.")
@@ -94,7 +95,7 @@ def plot_trajectories_one_category(traj_collection, category, xsize, ysize, xlim
 def plot_trajectories_with_background(traj_collection, background_image_path, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
 
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
 
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
 
@@ -125,7 +126,7 @@ def plot_trajectories_with_background(traj_collection, background_image_path, xs
 def plot_trajectories_one_category_background(traj_collection, category, background_image_path,  xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
 
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
 
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
 
@@ -153,7 +154,7 @@ def plot_trajectories_one_category_background(traj_collection, category, backgro
 def plot_trajectories_with_limits(traj_collection, category, background_image_path, reference_line, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
 
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
 
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
 
@@ -216,13 +217,12 @@ def plot_trajectories_with_limits(traj_collection, category, background_image_pa
 def plot_trajectories_with_start_finish(traj_collection, category, background_image_path, arrival_line, departure_line, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
 
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
 
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
 
     color = category_colors[category]
 
-    # Draws the reference lines
     # Draws the reference lines
     for reference_line, line_color in [(arrival_line, 'red'), (departure_line, 'green')]:
         x_coords_line = [point[0] for point in reference_line.coords]
@@ -313,23 +313,21 @@ def plot_trajectories_with_start_finish(traj_collection, category, background_im
     plt.title('Trajectories')
     plt.show()
     
-    
-def detect_stopped_periods(points, timestamps, max_distance=5, min_duration=30, noise_tolerance=1):
-    """Versão corrigida para trabalhar com tuplas (x, y)."""
+# Auxiliary function for calculte stop points
+def detect_stopped_periods(points, timestamps, max_distance, min_duration, noise_tolerance):
     if len(points) < 2:
         return []
 
-    # Converter pontos para array numpy (assumindo formato [(x1, y1), (x2, y2), ...])
+    # Convert points for numpy array (the format is [(x1, y1), (x2, y2), ...])
     points_array = np.array(points)
     
-    # Calcular deslocamentos entre pontos consecutivos
+    # Calculate displacements between consecutive points
     deltas = np.diff(points_array, axis=0)
     distances = np.hypot(deltas[:,0], deltas[:,1])
     
-    # Identificar movimentos significativos
+    # Identify significant movements
     significant_moves = distances > max_distance
     
-    # Inicializar variáveis
     stopped_periods = []
     start_idx = 0
     noise_count = 0
@@ -346,16 +344,17 @@ def detect_stopped_periods(points, timestamps, max_distance=5, min_duration=30, 
         else:
             noise_count = 0
             
-    # Verificar último período
+    # Check last period
     final_duration = (timestamps[-1] - timestamps[start_idx]).total_seconds()
     if final_duration >= min_duration:
         stopped_periods.append((start_idx, len(points)-1))
 
     return stopped_periods
 
+# Plot stop points in background
 def plot_trajectories_with_stopped(traj_collection, category, background_image_path, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, stop_threshold=5, min_duration=30, noise_tolerance=1, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
-    plt.figure(figsize=(xsize, ysize))
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
     color = category_colors[category]
     
@@ -364,26 +363,87 @@ def plot_trajectories_with_stopped(traj_collection, category, background_image_p
         if traj_category != category:
             continue
         
-        # Extrai coordenadas e timestamps
+        # Extract coordinates and timestamps
         points = [(p.x, p.y) for p in traj.df.geometry]
         timestamps = traj.df.index  # Assumindo que é um DatetimeIndex
         
-        # Chama a função detect_stopped_periods
+        # Calls the function detect_stopped_periods
         stopped_periods = detect_stopped_periods(points=points, timestamps=timestamps, max_distance=stop_threshold, min_duration=min_duration, noise_tolerance=noise_tolerance)
         
-        # Plotagem da trajetória completa
+        # Plot full trajectory collection
         x_coords = [p[0] for p in points]
         y_coords = [p[1] for p in points]
         plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha)
         
-        # Destaca pontos parados
+        # Highlights stopping points
         if stopped_periods:
             for period in stopped_periods:
                 start_idx, end_idx = period
                 stopped_x = [p[0] for p in points[start_idx:end_idx+1]]
                 stopped_y = [p[1] for p in points[start_idx:end_idx+1]]
-                label = 'Parado' if start_idx == 0 and not stopped_periods else ""
-                plt.scatter(stopped_x, stopped_y, color='red', s=10, zorder=4, label=label)
+                plt.scatter(stopped_x, stopped_y, color='red', s=3, zorder=4, label='Stopped Point' if start_idx == 0 else "")
+    
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys(), loc='best')
+    
+    plt.xlim(xlim1, xlim2)
+    plt.ylim(ylim1, ylim2)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.title('Trajectories')
+    plt.show()
+
+
+def plot_trajectories_with_stop_in_rectangle(traj_collection, category, background_image_path,xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, rect_min_x, rect_max_x, rect_min_y, rect_max_y, stop_threshold=5, min_duration=30, noise_tolerance=1, category_colors=category_colors_template, linewidth=2, alpha=0.35):
+    
+    img = Image.open(background_image_path)
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
+    plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
+    color = category_colors[category]
+    
+    # Rectangular plot of the monitored area
+    rect_width = rect_max_x - rect_min_x
+    rect_height = rect_max_y - rect_min_y
+    plt.gca().add_patch(Rectangle((rect_min_x, rect_min_y), rect_width, rect_height, linewidth=2, edgecolor='purple', facecolor='none', linestyle='--', label='Monitored Area'))
+    
+    for traj in traj_collection:
+        traj_category = traj.df['category'].iloc[0]
+        if traj_category != category:
+            continue
+        
+        points = [(p.x, p.y) for p in traj.df.geometry]
+        timestamps = traj.df.index
+        
+        # Detects downtime
+        stopped_periods = detect_stopped_periods(points=points, timestamps=timestamps, max_distance=stop_threshold, min_duration=min_duration, noise_tolerance=noise_tolerance)
+        
+        x_coords = [p[0] for p in points]
+        y_coords = [p[1] for p in points]
+        plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha)
+        
+        # Check stops inside the rectangle
+        if stopped_periods:
+            for start_idx, end_idx in stopped_periods:
+                stopped_points = points[start_idx:end_idx+1]
+                for x, y in stopped_points:
+                    # Checks if the point is within the rectangular area
+                    if (rect_min_x <= x <= rect_max_x) and (rect_min_y <= y <= rect_max_y):
+                        plt.scatter([x], [y], color='red', s=3, zorder=5, label='Stop in the Area')
+                        # Register to console
+                        print(f"Object {traj.df['identifier'].iloc[0]} stopped at ({x:.2f}, {y:.2f})"
+                              f" to the {timestamps[start_idx].strftime('%H:%M:%S')}"
+                              f" for {(timestamps[end_idx] - timestamps[start_idx]).total_seconds():.0f}s")
+
+    # Final plot settings
+    handles, labels = plt.gca().get_legend_handles_labels()
+    unique_labels = []
+    unique_handles = []
+    for handle, label in zip(handles, labels):
+        if label not in unique_labels:
+            unique_labels.append(label)
+            unique_handles.append(handle)
+    plt.legend(unique_handles, unique_labels)
     
     plt.xlim(xlim1, xlim2)
     plt.ylim(ylim1, ylim2)
