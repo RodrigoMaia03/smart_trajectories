@@ -26,7 +26,7 @@
 - **`plot_trajectories_with_stopped(traj_collection, category, background_image_path)`**  
   Plota as trajetórias de uma categoria verificando se em algum momento ouve um comportamento de parada.
 
-  - **`plot_trajectories_with_stop_in_rectangle(traj_collection, category, background_image_path)`**  
+- **`plot_trajectories_with_stop_in_rectangle(traj_collection, category, background_image_path)`**  
   Plota as trajetórias de uma categoria verificando se em algum momento ouve um comportamento de parada em uma certa área.
 
 - **`plot_trajectories_in_monitored_area(traj_collection, category, background_image_path)`**  
