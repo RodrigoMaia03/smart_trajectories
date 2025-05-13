@@ -11,15 +11,6 @@
 - **`generate_trajectory_collection(filename)`**  
   Carrega um arquivo CSV e transforma os dados em uma coleção de trajetórias.
 
-- **`plot_trajectories(traj_collection)`**  
-  Plota todas as trajetórias de uma coleção no plano cartesiano.
-
-- **`plot_trajectories_categorized(traj_collection)`**  
-  Plota as trajetórias de uma coleção categorizadas por cores.
-
-- **`plot_trajectories_one_category(traj_collection, category)`**  
-  Plota as trajetórias de uma única categoria específica.
-
 - **`plot_trajectories_with_background(traj_collection, background_image_path)`**  
   Plota as trajetórias sobre uma imagem de fundo estática.
 
@@ -34,6 +25,13 @@
 
 - **`plot_trajectories_with_stopped(traj_collection, category, background_image_path)`**  
   Plota as trajetórias de uma categoria verificando se em algum momento ouve um comportamento de parada.
+
+  - **`plot_trajectories_with_stop_in_rectangle(traj_collection, category, background_image_path)`**  
+  Plota as trajetórias de uma categoria verificando se em algum momento ouve um comportamento de parada em uma certa área.
+
+- **`plot_trajectories_in_monitored_area(traj_collection, category, background_image_path)`**  
+  Plota as trajetórias de uma categoria e infere quais trajetórias adentraram uma certa área.
+  
 ---
 
 ## **Como Utilizar a Biblioteca `smart-trajectories`**
