@@ -16,81 +16,6 @@ category_colors_template = {
     5.0: 'black',
 }
 
-# Plot all trajectories
-def plot_trajectories(traj_collection, xsize, ysize, xlim1, xlim2, ylim1, ylim2, linewidth=2, alpha=0.35):
-    plt.figure(figsize=(xsize/2.54, ysize/2.54))
-    
-    for traj in traj_collection:
-        x_coords = [point.x for point in traj.df.geometry]
-        y_coords = [point.y for point in traj.df.geometry]
-        
-        plt.plot(x_coords, y_coords, linewidth=linewidth, alpha=alpha)
-    
-    plt.xlim(xlim1, xlim2)  
-    plt.ylim(ylim1, ylim2)  
-
-    plt.xlabel('Latitude')
-    plt.ylabel('Longitude')
-    plt.title('Trajectories')
-    plt.grid(True)
-    plt.show()
-
-# Plots by category
-def plot_trajectories_categorized(traj_collection, xsize, ysize, xlim1, xlim2, ylim1, ylim2, linewidth=2, alpha=0.35, category_colors=category_colors_template):
-    plt.figure(figsize=(xsize/2.54, ysize/2.54))
-
-    for traj in traj_collection:
-        category = traj.df['category'].iloc[0]
-
-        if category in category_colors:
-            color = category_colors[category]
-        else:
-            color = 'gray'  
-
-        x_coords = [point.x for point in traj.df.geometry]
-        y_coords = [point.y for point in traj.df.geometry]
-        
-        plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha) 
-    
-    plt.xlim(xlim1, xlim2) 
-    plt.ylim(ylim1, ylim2) 
-
-    plt.xlabel('Longitude')
-    plt.ylabel('Latitude')
-    plt.title('Trajectories')
-    plt.grid(True)
-    plt.show()
-
-# Plots one category selected
-def plot_trajectories_one_category(traj_collection, category, xsize, ysize, xlim1, xlim2, ylim1, ylim2, linewidth=2, alpha=0.35, category_colors=category_colors_template):
-    plt.figure(figsize=(xsize/2.54, ysize/2.54))
-
-    if category not in category_colors:
-        print("Category not recognized. Use a valid category.")
-        return
-    
-    color = category_colors[category]
-
-    for traj in traj_collection:
-        traj_category = traj.df['category'].iloc[0]
-
-        if traj_category != category:
-            continue
-        
-        x_coords = [point.x for point in traj.df.geometry]
-        y_coords = [point.y for point in traj.df.geometry]
-        
-        plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha)
-    
-    plt.xlim(xlim1, xlim2)
-    plt.ylim(ylim1, ylim2)  
-
-    plt.xlabel('Longitude')
-    plt.ylabel('Latitude')
-    plt.title(f'Trajectories for category {category}')
-    plt.grid(True)
-    plt.show()
-
 # Plot with an image of the location
 def plot_trajectories_with_background(traj_collection, background_image_path, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
@@ -98,6 +23,7 @@ def plot_trajectories_with_background(traj_collection, background_image_path, xs
     plt.figure(figsize=(xsize/2.54, ysize/2.54))
 
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
+    trajectories_count = {}
 
     for traj in traj_collection:
         category = traj.df['category'].iloc[0]
@@ -106,6 +32,11 @@ def plot_trajectories_with_background(traj_collection, background_image_path, xs
             color = category_colors[category]
         else:
             color = 'gray'  
+            
+        if category in trajectories_count:
+            trajectories_count[category] += 1
+        else:
+            trajectories_count[category] = 1
 
         # Obtenha as coordenadas x e y de cada ponto na trajetória
         x_coords = [point.x for point in traj.df.geometry]
@@ -121,6 +52,19 @@ def plot_trajectories_with_background(traj_collection, background_image_path, xs
     plt.ylabel('Latitude')
     plt.title('Trajectories')
     plt.show()
+    
+    trajectories = list(traj_collection.trajectories)
+    
+    # Metrics for JSON return
+    metrics = {
+        'total_trajetorias': len(trajectories),
+        'tempo_medio (s)': (
+        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
+        ),
+        'trajetorias_por_categoria': trajectories_count
+    }
+    
+    return metrics
 
 # Plot one category with background
 def plot_trajectories_one_category_background(traj_collection, category, background_image_path,  xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
@@ -150,6 +94,18 @@ def plot_trajectories_one_category_background(traj_collection, category, backgro
     plt.ylabel('Latitude')
     plt.title('Trajectories')
     plt.show()
+    
+    # Metrics for JSON return
+    trajectories = list(traj_collection.trajectories)
+    
+    metrics = {
+        'total_trajetorias': len(trajectories),
+        'tempo_medio (s)': (
+        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
+        )
+    }
+    
+    return metrics
 
 def plot_trajectories_with_limits(traj_collection, category, background_image_path, reference_line, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
@@ -166,6 +122,8 @@ def plot_trajectories_with_limits(traj_collection, category, background_image_pa
 
     plt.plot(x_coords_line, y_coords_line, color='red', linewidth=2)
 
+    cross_line = 0
+
     for traj in traj_collection:
         traj_category = traj.df['category'].iloc[0]
 
@@ -177,6 +135,7 @@ def plot_trajectories_with_limits(traj_collection, category, background_image_pa
         
         # Verifica se a trajetória passou a linha de referência
         if line.intersects(reference_line):
+            cross_line += 1
             intersections = line.intersection(reference_line)
             if intersections.geom_type == 'Point':
                 intersection = intersections
@@ -213,6 +172,19 @@ def plot_trajectories_with_limits(traj_collection, category, background_image_pa
     plt.ylabel('Latitude')
     plt.title('Trajectories')
     plt.show()
+    
+    # Metrics for JSON return
+    trajectories = list(traj_collection.trajectories)
+    
+    metrics = {
+        'total_trajetorias': len(trajectories),
+        'tempo_medio (s)': (
+        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
+        ),
+        'cruzamentos_referencia': cross_line
+    }
+    
+    return metrics
 
 def plot_trajectories_with_start_finish(traj_collection, category, background_image_path, arrival_line, departure_line, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
     img = Image.open(background_image_path)
@@ -229,6 +201,9 @@ def plot_trajectories_with_start_finish(traj_collection, category, background_im
         y_coords_line = [point[1] for point in reference_line.coords]
         plt.plot(x_coords_line, y_coords_line, color=line_color, linewidth=4)
 
+    cross_line_init = 0
+    cross_line_finish = 0
+    
     for traj in traj_collection:
         traj_category = traj.df['category'].iloc[0]
 
@@ -246,6 +221,7 @@ def plot_trajectories_with_start_finish(traj_collection, category, background_im
 
         # Check if the trajectory crossed arrival line first (indicating wrong way)
         if line.intersects(arrival_line):
+            cross_line_finish += 1
             intersections = line.intersection(arrival_line)
             if intersections.geom_type == 'Point':
                 intersection = intersections
@@ -269,6 +245,7 @@ def plot_trajectories_with_start_finish(traj_collection, category, background_im
 
         # Check if the trajectory crossed departure line
         if line.intersects(departure_line):
+            cross_line_init += 1
             intersections = line.intersection(departure_line)
             if intersections.geom_type == 'Point':
                 intersection = intersections
@@ -312,6 +289,21 @@ def plot_trajectories_with_start_finish(traj_collection, category, background_im
     plt.ylabel('Latitude')
     plt.title('Trajectories')
     plt.show()
+    
+    # Metrics for JSON return
+    trajectories = list(traj_collection.trajectories)
+    
+    metrics = {
+        'total_trajetorias': len(trajectories),
+        'tempo_medio (s)': (
+        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
+        ),
+        'cruzementos_linha_inicial': cross_line_init,
+        'cruzamentos_linha_final': cross_line_finish
+    }
+    
+    return metrics
+
     
 # Auxiliary function for calculte stop points
 def detect_stopped_periods(points, timestamps, max_distance, min_duration, noise_tolerance):
@@ -358,6 +350,8 @@ def plot_trajectories_with_stopped(traj_collection, category, background_image_p
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
     color = category_colors[category]
     
+    total_stopped_periods = 0
+    
     for traj in traj_collection:
         traj_category = traj.df['category'].iloc[0]
         if traj_category != category:
@@ -369,6 +363,7 @@ def plot_trajectories_with_stopped(traj_collection, category, background_image_p
         
         # Calls the function detect_stopped_periods
         stopped_periods = detect_stopped_periods(points=points, timestamps=timestamps, max_distance=stop_threshold, min_duration=min_duration, noise_tolerance=noise_tolerance)
+        total_stopped_periods += len(stopped_periods)
         
         # Plot full trajectory collection
         x_coords = [p[0] for p in points]
@@ -393,6 +388,19 @@ def plot_trajectories_with_stopped(traj_collection, category, background_image_p
     plt.ylabel('Latitude')
     plt.title('Trajectories')
     plt.show()
+    
+    # Metrics for JSON return
+    trajectories = list(traj_collection.trajectories)
+    
+    metrics = {
+        'total_trajetorias': len(trajectories),
+        'tempo_medio (s)': (
+        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
+        ),
+        'total_periodos_de_parada': total_stopped_periods
+    }
+    
+    return metrics
 
 
 def plot_trajectories_with_stop_in_rectangle(traj_collection, category, background_image_path,xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, rect_min_x, rect_max_x, rect_min_y, rect_max_y, stop_threshold=5, min_duration=30, noise_tolerance=1, category_colors=category_colors_template, linewidth=2, alpha=0.35):
@@ -407,6 +415,8 @@ def plot_trajectories_with_stop_in_rectangle(traj_collection, category, backgrou
     rect_height = rect_max_y - rect_min_y
     plt.gca().add_patch(Rectangle((rect_min_x, rect_min_y), rect_width, rect_height, linewidth=2, edgecolor='purple', facecolor='none', linestyle='--', label='Monitored Area'))
     
+    total_stopped_periods = 0
+    
     for traj in traj_collection:
         traj_category = traj.df['category'].iloc[0]
         if traj_category != category:
@@ -417,6 +427,7 @@ def plot_trajectories_with_stop_in_rectangle(traj_collection, category, backgrou
         
         # Detects downtime
         stopped_periods = detect_stopped_periods(points=points, timestamps=timestamps, max_distance=stop_threshold, min_duration=min_duration, noise_tolerance=noise_tolerance)
+        total_stopped_periods += len(stopped_periods)
         
         x_coords = [p[0] for p in points]
         y_coords = [p[1] for p in points]
@@ -451,3 +462,102 @@ def plot_trajectories_with_stop_in_rectangle(traj_collection, category, backgrou
     plt.ylabel('Latitude')
     plt.title('Trajectories')
     plt.show()
+    
+    # Metrics for JSON return
+    trajectories = list(traj_collection.trajectories)
+    
+    metrics = {
+        'total_trajetorias': len(trajectories),
+        'tempo_medio (s)': (
+        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
+        ),
+        'total_periodos_de_parada': total_stopped_periods
+    }
+    
+    return metrics
+
+
+def plot_trajectories_in_monitored_area(traj_collection, category, background_image_path, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, rect_min_x, rect_max_x, rect_min_y, rect_max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
+    
+    img = Image.open(background_image_path)
+    plt.figure(figsize=(xsize/2.54, ysize/2.54))
+    plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
+    color = category_colors[category]
+
+    # Configure the monitored area
+    plt.gca().add_patch(Rectangle(
+        (rect_min_x, rect_min_y), 
+        rect_max_x - rect_min_x, 
+        rect_max_y - rect_min_y,
+        linewidth=2, edgecolor='blue', facecolor='none', 
+        linestyle='--', label='Área Monitorada'
+    ))
+
+    # Metrics
+    metrics = {
+        'total_trajetorias': 0,
+        'tempo_total_na_area (s)': 0.0,
+        'trajetorias_na_area': 0
+    }
+
+    for traj in traj_collection:
+        traj_category = traj.df['category'].iloc[0]
+        if traj_category != category:
+            continue
+    
+        metrics['total_trajetorias'] += 1
+        traj_metrics = {
+            'id': traj.df['identifier'].iloc[0],
+            'time_in_area': 0.0,
+            'entered_in_area': False
+        }
+
+        points = [(p.x, p.y) for p in traj.df.geometry]
+        timestamps = traj.df.index
+
+        # Generates point mask within the area
+        in_area = [
+            (rect_min_x <= x <= rect_max_x) and (rect_min_y <= y <= rect_max_y)
+            for x, y in points
+        ]
+
+        # Calculates continuous periods within the area
+        start_time = None
+        for i, (inside, ts) in enumerate(zip(in_area, timestamps)):
+            if inside and start_time is None:
+                start_time = ts
+            elif not inside and start_time is not None:
+                traj_metrics['time_in_area'] += (ts - start_time).total_seconds()
+                start_time = None
+                traj_metrics['entered_in_area'] = True
+
+        # Treats last segment
+        if start_time is not None:
+            traj_metrics['time_in_area'] += (timestamps[-1] - start_time).total_seconds()
+            traj_metrics['entered_in_area'] = True
+
+        # Update global metrics
+        if traj_metrics['entered_in_area']:
+            metrics['tempo_total_na_area'] += traj_metrics['time_in_area']
+            metrics['trajetorias_na_area'] += 1
+
+        # Basic Plot
+        x_coords = [p[0] for p in points]
+        y_coords = [p[1] for p in points]
+        plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha)
+
+    # Final configurations for generate plot
+    plt.xlim(xlim1, xlim2)
+    plt.ylim(ylim1, ylim2)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.title('Trajectories')
+    plt.legend()
+    plt.show()
+
+    # Metric for JSON return
+    metrics['tempo medio (s)'] = (
+        metrics['tempo_total_na_area (s)'] / metrics['trajetorias_na_area'] if metrics['trajetorias_na_area'] > 0 else 0.0
+    )
+
+    return metrics
