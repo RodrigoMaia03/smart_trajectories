@@ -38,11 +38,11 @@ def plot_trajectories_with_background(traj_collection, background_image_path, xs
         else:
             trajectories_count[category] = 1
 
-        # Obtenha as coordenadas x e y de cada ponto na trajetória
+        # Get the X and Y coordinates of each point on the trajectory
         x_coords = [point.x for point in traj.df.geometry]
         y_coords = [point.y for point in traj.df.geometry]
         
-        # Plote a trajetória
+        # Plot trajectory
         plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha) 
     
     plt.xlim(xlim1, xlim2)  
@@ -133,7 +133,7 @@ def plot_trajectories_with_limits(traj_collection, category, background_image_pa
         line = LineString([(point.x, point.y) for point in traj.df.geometry])
 
         
-        # Verifica se a trajetória passou a linha de referência
+        # Check if the trajectory passed the reference line
         if line.intersects(reference_line):
             cross_line += 1
             intersections = line.intersection(reference_line)
@@ -351,6 +351,7 @@ def plot_trajectories_with_stopped(traj_collection, category, background_image_p
     color = category_colors[category]
     
     total_stopped_periods = 0
+    total_stop_time = 0.0
     
     for traj in traj_collection:
         traj_category = traj.df['category'].iloc[0]
@@ -364,6 +365,10 @@ def plot_trajectories_with_stopped(traj_collection, category, background_image_p
         # Calls the function detect_stopped_periods
         stopped_periods = detect_stopped_periods(points=points, timestamps=timestamps, max_distance=stop_threshold, min_duration=min_duration, noise_tolerance=noise_tolerance)
         total_stopped_periods += len(stopped_periods)
+        
+        # For each stop period: calculates and adds the time
+        for start_idx, end_idx in stopped_periods:
+            total_stop_time += (timestamps[end_idx] - timestamps[start_idx]).total_seconds()
         
         # Plot full trajectory collection
         x_coords = [p[0] for p in points]
@@ -394,9 +399,7 @@ def plot_trajectories_with_stopped(traj_collection, category, background_image_p
     
     metrics = {
         'total_trajetorias': len(trajectories),
-        'tempo_medio (s)': (
-        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
-        ),
+        'tempo_medio_de_parada (s)': (total_stop_time / total_stopped_periods if total_stopped_periods > 0 else 0),
         'total_periodos_de_parada': total_stopped_periods
     }
     
@@ -416,6 +419,7 @@ def plot_trajectories_with_stop_in_rectangle(traj_collection, category, backgrou
     plt.gca().add_patch(Rectangle((rect_min_x, rect_min_y), rect_width, rect_height, linewidth=2, edgecolor='purple', facecolor='none', linestyle='--', label='Monitored Area'))
     
     total_stopped_periods = 0
+    total_stop_time = 0.0
     
     for traj in traj_collection:
         traj_category = traj.df['category'].iloc[0]
@@ -428,6 +432,10 @@ def plot_trajectories_with_stop_in_rectangle(traj_collection, category, backgrou
         # Detects downtime
         stopped_periods = detect_stopped_periods(points=points, timestamps=timestamps, max_distance=stop_threshold, min_duration=min_duration, noise_tolerance=noise_tolerance)
         total_stopped_periods += len(stopped_periods)
+        
+        # For each stop period: calculates and adds the time
+        for start_idx, end_idx in stopped_periods:
+            total_stop_time += (timestamps[end_idx] - timestamps[start_idx]).total_seconds()
         
         x_coords = [p[0] for p in points]
         y_coords = [p[1] for p in points]
@@ -468,9 +476,7 @@ def plot_trajectories_with_stop_in_rectangle(traj_collection, category, backgrou
     
     metrics = {
         'total_trajetorias': len(trajectories),
-        'tempo_medio (s)': (
-        sum((traj.get_duration().total_seconds() for traj in trajectories)) / len(trajectories) if trajectories else 0 
-        ),
+        'tempo_medio_de_parada (s)': (total_stop_time / total_stopped_periods if total_stopped_periods > 0 else 0),
         'total_periodos_de_parada': total_stopped_periods
     }
     
@@ -478,34 +484,30 @@ def plot_trajectories_with_stop_in_rectangle(traj_collection, category, backgrou
 
 
 def plot_trajectories_in_monitored_area(traj_collection, category, background_image_path, xsize, ysize, xlim1, xlim2, ylim1, ylim2, min_x, max_x, min_y, max_y, rect_min_x, rect_max_x, rect_min_y, rect_max_y, category_colors=category_colors_template, linewidth=2, alpha=0.35):
-    
     img = Image.open(background_image_path)
-    plt.figure(figsize=(xsize/2.54, ysize/2.54))
+    plt.figure(figsize=(xsize / 2.54, ysize / 2.54))
     plt.imshow(img, extent=[min_x, max_x, max_y, min_y])
     color = category_colors[category]
 
-    # Configure the monitored area
+    # Rectangular plot of the monitored area
     plt.gca().add_patch(Rectangle(
-        (rect_min_x, rect_min_y), 
-        rect_max_x - rect_min_x, 
-        rect_max_y - rect_min_y,
-        linewidth=2, edgecolor='blue', facecolor='none', 
-        linestyle='--', label='Área Monitorada'
+        (rect_min_x, rect_min_y), rect_max_x - rect_min_x, rect_max_y - rect_min_y,
+        linewidth=2, edgecolor='turquoise', facecolor='none', linestyle='--', label='Monitored Area'
     ))
 
-    # Metrics
     metrics = {
         'total_trajetorias': 0,
         'tempo_total_na_area (s)': 0.0,
         'trajetorias_na_area': 0
     }
-
+    
     for traj in traj_collection:
         traj_category = traj.df['category'].iloc[0]
         if traj_category != category:
             continue
-    
+        
         metrics['total_trajetorias'] += 1
+
         traj_metrics = {
             'id': traj.df['identifier'].iloc[0],
             'time_in_area': 0.0,
@@ -520,7 +522,7 @@ def plot_trajectories_in_monitored_area(traj_collection, category, background_im
             (rect_min_x <= x <= rect_max_x) and (rect_min_y <= y <= rect_max_y)
             for x, y in points
         ]
-
+        
         # Calculates continuous periods within the area
         start_time = None
         for i, (inside, ts) in enumerate(zip(in_area, timestamps)):
@@ -538,15 +540,13 @@ def plot_trajectories_in_monitored_area(traj_collection, category, background_im
 
         # Update global metrics
         if traj_metrics['entered_in_area']:
-            metrics['tempo_total_na_area'] += traj_metrics['time_in_area']
+            metrics['tempo_total_na_area (s)'] += traj_metrics['time_in_area']
             metrics['trajetorias_na_area'] += 1
 
-        # Basic Plot
         x_coords = [p[0] for p in points]
         y_coords = [p[1] for p in points]
         plt.plot(x_coords, y_coords, color=color, linewidth=linewidth, alpha=alpha)
-
-    # Final configurations for generate plot
+    
     plt.xlim(xlim1, xlim2)
     plt.ylim(ylim1, ylim2)
     plt.xlabel('Longitude')
@@ -555,9 +555,8 @@ def plot_trajectories_in_monitored_area(traj_collection, category, background_im
     plt.legend()
     plt.show()
 
-    # Metric for JSON return
-    metrics['tempo medio (s)'] = (
+    metrics['tempo_medio_na_area (s)'] = (
         metrics['tempo_total_na_area (s)'] / metrics['trajetorias_na_area'] if metrics['trajetorias_na_area'] > 0 else 0.0
     )
-
+    
     return metrics
